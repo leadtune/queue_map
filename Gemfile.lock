@@ -1,0 +1,39 @@
+PATH
+  remote: .
+  specs:
+    queue_map (0.1)
+      bunny (= 0.5.3)
+
+GEM
+  remote: http://rubygems.org/
+  specs:
+    background_process (1.2)
+    bunny (0.5.3)
+    columnize (0.3.1)
+    diff-lcs (1.1.2)
+    linecache (0.43)
+    rspec (2.0.0.rc)
+      rspec-core (= 2.0.0.rc)
+      rspec-expectations (= 2.0.0.rc)
+      rspec-mocks (= 2.0.0.rc)
+    rspec-core (2.0.0.rc)
+    rspec-expectations (2.0.0.rc)
+      diff-lcs (>= 1.1.2)
+    rspec-mocks (2.0.0.rc)
+      rspec-core (= 2.0.0.rc)
+      rspec-expectations (= 2.0.0.rc)
+    ruby-debug (0.10.3)
+      columnize (>= 0.1)
+      ruby-debug-base (~> 0.10.3.0)
+    ruby-debug-base (0.10.3)
+      linecache (>= 0.3)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  background_process
+  bunny (= 0.5.3)
+  queue_map!
+  rspec (= 2.0.0.rc)
+  ruby-debug

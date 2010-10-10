@@ -1,0 +1,13 @@
+#!/usr/bin/env ruby
+
+require 'optparse'
+options = {}
+opt_p = OptionParser.new do |opts|
+  opts.banner = "Usage: script/export_sales.rb [options] path/to/consumer.rb"
+  opts.separator "Options:"
+  opts.on('-f', '--foreground', "Run appraiser in the foreground") do
+    options[:foreground] = true
+  end
+  opts.on_tail("-h", "--help", "Show this message")
+end
+opt_p.parse!
