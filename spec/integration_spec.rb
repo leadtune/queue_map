@@ -12,6 +12,18 @@ class Surprise
   end
 end
 
+class SlowResponse
+  attr_reader :name
+  def initialize(name, sec)
+    @name, @sec = name, sec
+  end
+
+  def to_s
+    sleep @sec
+    @name
+  end
+end
+
 describe "Integration" do
   context "Running consumers in separate processes" do
     def start_consumers
@@ -29,10 +41,7 @@ describe "Integration" do
 
     it "does stuff" do
       start_consumers
-      timing {
-        results = ['Bob', 'Jim', 'dork'].queue_map(:greet)
-        results.should == ['Hello, Bob', 'Hello, Jim', 'Hello, dork']
-      }.should be_close(1, 0.3)
+      ['Bob', 'Jim', 'Charlie'].queue_map(:greet).should == ['Hello, Bob', 'Hello, Jim', 'Hello, Charlie']
     end
   end
 
@@ -46,36 +55,31 @@ describe "Integration" do
     end
 
     it "runs the consumer directly, without using the queue" do
-      time = Time.now
       results = ['Bob', 'Jim'].queue_map(:greet)
       results.should == ['Hello, Bob', 'Hello, Jim']
-      (Time.now - time).should < 3
     end
   end
 
   context "Running the consumers in threads" do
     before(:each) do
       QueueMap.mode = :thread
-      QueueMap.consumer(:greet).start
+      @consumer = QueueMap.consumer(:greet)
+      @consumer.start
     end
 
     after(:each) do
-      QueueMap.consumer(:greet).stop
+      @consumer.stop
       QueueMap.mode = nil
     end
 
     it "runs the consumer using the queue" do
-      timing {
-        results = ['Bob', 'Jim'].queue_map(:greet)
-        results.should == ['Hello, Bob', 'Hello, Jim']
-      }.should < 2
+      results = ['Bob', 'Jim'].queue_map(:greet)
+      results.should == ['Hello, Bob', 'Hello, Jim']
     end
 
     it "runs the :on_timeout proc if result not received within :timeout seconds" do
-      timing {
-        results = ['Bob', 'Jim'].queue_map(:greet, :timeout => 0.25, :on_timeout => lambda { |r| "No time for you, #{r}" })
-        results.should == ['No time for you, Bob', 'No time for you, Jim']
-      }.should < 2
+      input = [SlowResponse.new("Bob", 1.2), SlowResponse.new("Jim", 0.2)]
+      input.queue_map(:greet, :timeout => 1, :on_timeout => lambda { |r| "No time for you, #{r.name}" }).should == ["No time for you, Bob", "Hello, Jim"]
     end
 
     it "continues consuming messages if exceptions are raised" do

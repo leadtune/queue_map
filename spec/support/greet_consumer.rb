@@ -9,6 +9,5 @@ after_fork do
 end
 
 worker do |payload|
-  sleep 1
   "Hello, #{payload.to_s}"
 end
