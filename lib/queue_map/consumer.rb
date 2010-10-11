@@ -1,15 +1,17 @@
 class QueueMap::Consumer
-  attr_accessor :count_workers, :worker_proc
+  attr_accessor :count_workers, :worker_proc, :on_exception_proc
   attr_reader :name
   class Configurator
     def initialize(base)
       @base = base
     end
 
-    def before_fork(&block);  @base.before_fork_procs << block; end
-    def after_fork(&block);   @base.after_fork_procs  << block; end
-    def count_workers(value); @base.count_workers     =  value; end
-    def worker(&block);       @base.worker_proc       =  block; end
+    def before_fork(&block);        @base.before_fork_procs       << block; end
+    def after_fork(&block);         @base.after_fork_procs        << block; end
+    def between_responses(&block);  @base.between_responses_procs << block; end
+    def worker(&block);             @base.worker_proc             =  block; end
+    def on_exception(&block);       @base.on_exception_proc       =  block; end
+    def count_workers(value);       @base.count_workers           =  value; end
   end
 
 
@@ -48,6 +50,10 @@ class QueueMap::Consumer
     @before_fork_procs ||= []
   end
 
+  def between_responses_procs
+    @between_responses_procs ||= []
+  end
+
   def start
     raise RuntimeError, "Called start on Consumer without strategy"
   end
@@ -67,6 +73,7 @@ class QueueMap::Consumer
           msg = Marshal.load(msg)
           result = worker_proc.call(msg[:input])
           bunny.queue(msg[:response_queue]).publish(Marshal.dump(:result => result, :index => msg[:index]))
+          between_responses_procs.each { |p| p.call }
         rescue Exception => e
           if on_exception_proc
             on_exception_proc.call(e)
