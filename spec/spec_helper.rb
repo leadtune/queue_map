@@ -15,3 +15,5 @@ $: << LIB_PATH
 
 require "queue_map"
 require "queue_map/consumer"
+
+QueueMap.consumer_base_path = SPEC_PATH + "support"

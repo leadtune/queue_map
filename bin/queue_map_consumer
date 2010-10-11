@@ -11,3 +11,29 @@ opt_p = OptionParser.new do |opts|
   opts.on_tail("-h", "--help", "Show this message")
 end
 opt_p.parse!
+consumer_path = ARGV[0]
+if consumer_path.nil?
+  puts opt_p
+  exit 1
+end
+
+require "rubygems"
+require File.dirname(__FILE__) + "/../lib/queue_map"
+require File.dirname(__FILE__) + "/../lib/queue_map/consumer"
+name = File.basename(consumer_path).gsub(/_consumer\.rb$/, '').to_sym
+consumer = QueueMap::Consumer.new(name, consumer_path, :strategy => :fork)
+
+unless options[:foreground]
+  # daemonize
+  puts "Daemonizing"
+  pid = Kernel.fork
+  if pid
+    Process.detach(pid)
+    puts "Daemonized as #{pid}"
+    exit 0
+  else
+    Signal.trap('HUP', 'IGNORE') # Don't die upon logout
+  end
+end
+puts "Starting consumers..."
+consumer.start

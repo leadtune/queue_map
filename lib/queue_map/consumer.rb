@@ -22,6 +22,8 @@ class QueueMap::Consumer
       configurator.instance_eval(File.read(config_file), config_file, 1)
     end
     case options[:strategy]
+    when :fork
+      extend(ForkStrategy)
     when :thread
       extend(ThreadStrategy)
     when :test
@@ -40,16 +42,18 @@ class QueueMap::Consumer
   end
 
   def start
-    puts "Egad"
+    raise RuntimeError, "Called start on Consumer without strategy"
   end
 
   def stop
+    raise RuntimeError, "Called stop on Consumer without strategy"
   end
 
   def run_consumer
     QueueMap.with_bunny do |bunny|
-      q = bunny.queue(name.to_s)
+      q = bunny.queue(name.to_s, :durable => false, :auto_delete => true)
       while msg = q.pop
+        return if @shutting_down
         (sleep 0.05; next) if msg == :queue_empty
         msg = Marshal.load(msg)
         result = worker_proc.call(msg[:input])
@@ -72,8 +76,54 @@ class QueueMap::Consumer
       end
     end
 
-    def stop
-      @threads.each { |t| t.kill }
+    def stop(graceful = true)
+      if graceful
+        @shutting_down = true
+      else
+        @threads.each { |t| t.kill }
+      end
+    end
+  end
+
+  module ForkStrategy
+    class ImaChild < Exception; end
+
+    def start
+      @child_pids = []
+      @master_pid = Process.pid
+      before_fork_procs.each { |p| p.call }
+      begin
+        (count_workers - 1).times do |c|
+          pid = Kernel.fork
+          raise ImaChild if pid.nil?
+          @child_pids << pid
+        end
+        $0 = "#{name} queue_map consumer: master"
+      rescue ImaChild
+        $0 = "#{name} queue_map consumer: child"
+        # Parent Child Testing Product was a success! http://is.gd/fXmmZ
+      end
+      Signal.trap("TERM") { stop(false) }
+      Signal.trap("INT") { stop }
+      after_fork_procs.each { |p| p.call }
+      run_consumer
+    end
+
+    def stop(graceful = true)
+      @child_pids.each do |pid|
+        begin
+          Process.kill(graceful ? "INT" : "TERM", pid)
+        rescue Errno::ESRCH => e
+          puts "Unable to signal process #{pid}. Does the process not exist?"
+        end
+      end
+
+      puts "#{Process.pid}: stopping (graceful: #{graceful})"
+      if graceful
+        @shutting_down = true
+      else
+        exit 0
+      end
     end
   end
 end
