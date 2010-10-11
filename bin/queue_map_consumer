@@ -20,8 +20,8 @@ end
 require "rubygems"
 require File.dirname(__FILE__) + "/../lib/queue_map"
 require File.dirname(__FILE__) + "/../lib/queue_map/consumer"
-name = File.basename(consumer_path).gsub(/_consumer\.rb$/, '').to_sym
-consumer = QueueMap::Consumer.new(name, consumer_path, :strategy => :fork)
+
+consumer = QueueMap::Consumer.from_file(consumer_path, :strategy => :fork)
 
 unless options[:foreground]
   # daemonize

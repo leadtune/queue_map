@@ -13,14 +13,21 @@ class QueueMap::Consumer
   end
 
 
-  def initialize(name, config_file = nil, options = { }, &block)
+  def self.new_from_block(name, options = { }, &block)
+    consumer = new(name, options)
+    Configurator.new(consumer).instance_eval(&block)
+    consumer
+  end
+
+  def self.from_file(consumer_path, options = { })
+    name = File.basename(consumer_path).gsub(/_consumer\.rb$/, '').to_sym
+    consumer = new(name, options)
+    Configurator.new(consumer).instance_eval(File.read(consumer_path), consumer_path, 1)
+    consumer
+  end
+
+  def initialize(name, options = { })
     @name = name
-    configurator = Configurator.new(self)
-    if block_given?
-      configurator.instance_eval(&block)
-    else
-      configurator.instance_eval(File.read(config_file), config_file, 1)
-    end
     case options[:strategy]
     when :fork
       extend(ForkStrategy)

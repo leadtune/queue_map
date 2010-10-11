@@ -64,7 +64,7 @@ module QueueMap
   end
 
   def consumer(name)
-    consumers[name] ||= QueueMap::Consumer.new(name, consumer_path[name], :strategy => mode || :thread)
+    consumers[name] ||= QueueMap::Consumer.from_file(consumer_path[name], :strategy => mode || :thread)
   end
 
   def with_bunny(&block)
