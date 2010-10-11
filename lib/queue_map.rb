@@ -3,6 +3,7 @@ require "bunny"
 require 'timeout'
 
 module QueueMap
+  BUNNY_MUTEX = Mutex.new
   extend self
   attr_accessor :mode
   attr_accessor :consumer_base_path
@@ -68,8 +69,11 @@ module QueueMap
   end
 
   def with_bunny(&block)
-    bunny = Bunny.new((@connection_info || { }).merge(:spec => '08'))
-    bunny.start
+    bunny = nil
+    BUNNY_MUTEX.synchronize do
+      bunny = Bunny.new((@connection_info || { }).merge(:spec => '08'))
+      bunny.start
+    end
     begin
       yield bunny
     ensure
