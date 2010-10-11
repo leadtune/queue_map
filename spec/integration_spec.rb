@@ -6,6 +6,12 @@ def timing(&block)
   (Time.now - time)
 end
 
+class Surprise
+  def to_s
+    raise "Surprise!"
+  end
+end
+
 describe "Integration" do
   context "Running consumers in separate processes" do
     def start_consumers
@@ -70,6 +76,15 @@ describe "Integration" do
         results = ['Bob', 'Jim'].queue_map(:greet, :timeout => 0.25, :on_timeout => lambda { |r| "No time for you, #{r}" })
         results.should == ['No time for you, Bob', 'No time for you, Jim']
       }.should < 2
+    end
+
+    it "continues consuming messages if exceptions are raised" do
+      exceptions = []
+      @consumer.on_exception_proc = lambda { |e| exceptions << e }
+      gravel = [Surprise.new] * 3
+      gravel.queue_map(:greet, :timeout => 1.5)
+      exceptions.map { |e| e.message }.should == %w[Surprise! Surprise! Surprise!]
+      ['Bob', 'Jim'].queue_map(:greet, :timeout => 5).should == ['Hello, Bob', 'Hello, Jim']
     end
   end
 end

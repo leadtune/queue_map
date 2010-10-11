@@ -60,11 +60,21 @@ class QueueMap::Consumer
     QueueMap.with_bunny do |bunny|
       q = bunny.queue(name.to_s, :durable => false, :auto_delete => true)
       while msg = q.pop
+        # STDOUT << "[#{Thread.current[:id]}]"
         return if @shutting_down
-        (sleep 0.05; next) if msg == :queue_empty
-        msg = Marshal.load(msg)
-        result = worker_proc.call(msg[:input])
-        bunny.queue(msg[:response_queue]).publish(Marshal.dump(:result => result, :index => msg[:index]))
+        begin
+          (sleep 0.05; next) if msg == :queue_empty
+          msg = Marshal.load(msg)
+          result = worker_proc.call(msg[:input])
+          bunny.queue(msg[:response_queue]).publish(Marshal.dump(:result => result, :index => msg[:index]))
+        rescue Exception => e
+          if on_exception_proc
+            on_exception_proc.call(e)
+          else
+            puts e
+            puts e.backtrace
+          end
+        end
       end
     end
   end

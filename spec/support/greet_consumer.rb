@@ -10,5 +10,5 @@ end
 
 worker do |payload|
   sleep 1
-  "Hello, #{payload}"
+  "Hello, #{payload.to_s}"
 end
