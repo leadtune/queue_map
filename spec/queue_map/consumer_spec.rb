@@ -28,5 +28,15 @@ describe QueueMap::Consumer do
       consumer.pid_file.should == "my.pid"
       consumer.log_file.should == "my.log"
     end
+
+    it "allows me to access instance methods of the consumer from within the config scope" do
+      consumer = QueueMap::Consumer.new_from_block(:name, :strategy => :test) do
+        worker do |payload|
+          logger.class.should == Logger
+        end
+      end
+      consumer.worker_proc.call(nil)
+    end
+
   end
 end

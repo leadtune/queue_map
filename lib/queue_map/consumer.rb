@@ -15,6 +15,14 @@ class QueueMap::Consumer
     def count_workers(value);       @base.count_workers           =  value; end
     def pid_file(value);            @base.pid_file                =  value; end
     def log_file(value);            @base.log_file                =  value; end
+
+    def respond_to?(*args)
+      super || @base.respond_to?(*args)
+    end
+
+    def method_missing(method_name, *args)
+      @base.send(method_name, *args)
+    end
   end
 
 
