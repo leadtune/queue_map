@@ -1,39 +1,79 @@
 #!/usr/bin/env ruby
 
 require 'optparse'
-options = {}
+@options = {}
 opt_p = OptionParser.new do |opts|
-  opts.banner = "Usage: script/export_sales.rb [options] path/to/consumer.rb"
+  opts.banner = "Usage: queue_map_consumer [options] [ start | stop | restart ] path/to/consumer.rb"
   opts.separator "Options:"
   opts.on('-f', '--foreground', "Run appraiser in the foreground") do
-    options[:foreground] = true
+    @options[:foreground] = true
   end
   opts.on_tail("-h", "--help", "Show this message")
 end
 opt_p.parse!
-consumer_path = ARGV[0]
+action, consumer_path = ARGV
 if consumer_path.nil?
   puts opt_p
   exit 1
 end
 
 require "rubygems"
+require "background_process"
 require File.dirname(__FILE__) + "/../lib/queue_map"
 require File.dirname(__FILE__) + "/../lib/queue_map/consumer"
 
-consumer = QueueMap::Consumer.from_file(consumer_path, :strategy => :fork)
+@consumer = QueueMap::Consumer.from_file(consumer_path, :strategy => :fork)
+@pid_file = @consumer.pid_file
 
-unless options[:foreground]
-  # daemonize
-  puts "Daemonizing"
-  pid = Kernel.fork
-  if pid
-    Process.detach(pid)
-    puts "Daemonized as #{pid}"
-    exit 0
-  else
-    Signal.trap('HUP', 'IGNORE') # Don't die upon logout
+def pid
+  return nil unless File.exist?(@pid_file)
+  pid = File.read(@pid_file).to_i
+  begin
+    Process.getpgid(pid)
+    pid
+  rescue Errno::ESRCH
+    nil
   end
 end
-puts "Starting consumers..."
-consumer.start
+
+def stop
+  (puts "Not running"; exit 1) unless pid
+  Process.kill("INT", pid)
+  puts "Sending INT to #{pid}"
+end
+
+def start
+  (puts "Already running as #{pid}"; exit 1) if pid
+  puts "Starting consumers..."
+  unless @options[:foreground]
+    # daemonize
+    puts "Daemonizing"
+    pid = Kernel.fork
+    if pid
+      Process.detach(pid)
+      puts "Daemonized as #{pid}"
+      File.open(@consumer.pid_file, "w") { |f| f << pid.to_s }
+      exit 0
+    else
+      Signal.trap('HUP', 'IGNORE') # Don't die upon logout
+    end
+  end
+  @consumer.start
+end
+
+def restart
+  old_pid = pid
+  @consumer.before_fork_procs << (lambda do
+    Process.kill("INT", old_pid) rescue Errno::ESRCH
+  end)
+  FileUtils.rm_f(@pid_file)
+  start
+end
+
+case action
+when "start" then start
+when "stop" then stop
+when "restart" then restart
+else
+  puts "Unknown action: #{action}"
+end

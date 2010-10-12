@@ -1,6 +1,7 @@
 class QueueMap::Consumer
   attr_accessor :count_workers, :worker_proc, :on_exception_proc
-  attr_reader :name
+  attr_reader :name, :master_pid
+  attr_writer :pid_file
   class Configurator
     def initialize(base)
       @base = base
@@ -12,6 +13,7 @@ class QueueMap::Consumer
     def worker(&block);             @base.worker_proc             =  block; end
     def on_exception(&block);       @base.on_exception_proc       =  block; end
     def count_workers(value);       @base.count_workers           =  value; end
+    def pid_file(value);            @base.pid_file                =  value; end
   end
 
 
@@ -52,6 +54,10 @@ class QueueMap::Consumer
 
   def between_responses_procs
     @between_responses_procs ||= []
+  end
+  
+  def pid_file
+    "#{name}_consumer.pid"
   end
 
   def start

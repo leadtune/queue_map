@@ -27,7 +27,7 @@ end
 describe "Integration" do
   context "Running consumers in separate processes" do
     def start_consumers
-      @process = BackgroundProcess.run("#{BIN_PATH}/queue_map_consumer -f #{SPEC_PATH}/support/greet_consumer.rb")
+      @process = BackgroundProcess.run("#{BIN_PATH}/queue_map_consumer -f start #{SPEC_PATH}/support/greet_consumer.rb")
       @process.detect { |line| /Starting consumers/.match(line) }
     end
 
@@ -39,7 +39,7 @@ describe "Integration" do
       stop_consumers
     end
 
-    it "does stuff" do
+    it "performs the work in the spawned processes" do
       start_consumers
       ['Bob', 'Jim', 'Charlie'].queue_map(:greet).should == ['Hello, Bob', 'Hello, Jim', 'Hello, Charlie']
     end
