@@ -140,6 +140,7 @@ class QueueMap::Consumer
     end
 
     def stop(graceful = true)
+      $0 = $0 + " [shutting down]"
       @child_pids.each do |pid|
         begin
           Process.kill(graceful ? "INT" : "TERM", pid)
