@@ -1,7 +1,7 @@
 class QueueMap::Consumer
   attr_accessor :count_workers, :worker_proc, :on_exception_proc
   attr_reader :name, :master_pid
-  attr_writer :pid_file
+  attr_writer :pid_file, :log_file
   class Configurator
     def initialize(base)
       @base = base
@@ -14,6 +14,7 @@ class QueueMap::Consumer
     def on_exception(&block);       @base.on_exception_proc       =  block; end
     def count_workers(value);       @base.count_workers           =  value; end
     def pid_file(value);            @base.pid_file                =  value; end
+    def log_file(value);            @base.log_file                =  value; end
   end
 
 
@@ -57,7 +58,15 @@ class QueueMap::Consumer
   end
   
   def pid_file
-    "#{name}_consumer.pid"
+    @pid_file ||= "#{name}_consumer.pid"
+  end
+
+  def log_file
+    @log_file ||= "#{name}_consumer.log"
+  end
+
+  def logger
+    @logger ||= Logger.new(log_file)
   end
 
   def start
@@ -84,8 +93,8 @@ class QueueMap::Consumer
           if on_exception_proc
             on_exception_proc.call(e)
           else
-            puts e
-            puts e.backtrace
+            logger.error e.message
+            logger.error e.backtrace
           end
         end
       end
@@ -100,7 +109,7 @@ class QueueMap::Consumer
                        begin
                          run_consumer
                        rescue Exception => e
-                         puts %(#{e}\n#{e.backtrace.join("\n")})
+                         logger.error %(#{e}\n#{e.backtrace.join("\n")})
                        end
                      end)
       end
@@ -136,6 +145,7 @@ class QueueMap::Consumer
       Signal.trap("TERM") { stop(false) }
       Signal.trap("INT") { stop }
       after_fork_procs.each { |p| p.call }
+      logger.info "#{Process.pid}: running"
       run_consumer
     end
 
@@ -145,11 +155,11 @@ class QueueMap::Consumer
         begin
           Process.kill(graceful ? "INT" : "TERM", pid)
         rescue Errno::ESRCH => e
-          puts "Unable to signal process #{pid}. Does the process not exist?"
+          logger.error "Unable to signal process #{pid}. Does the process not exist?"
         end
       end
 
-      puts "#{Process.pid}: stopping (graceful: #{graceful})"
+      logger.info "#{Process.pid}: stopping (graceful: #{graceful})"
       if graceful
         @shutting_down = true
       else

@@ -15,6 +15,8 @@ describe QueueMap::Consumer do
         worker            &worker_proc
         between_responses &between_responses_proc
         on_exception      &on_exception_proc
+        pid_file "my.pid"
+        log_file "my.log"
       end
 
       consumer.count_workers.should           == 5
@@ -23,6 +25,8 @@ describe QueueMap::Consumer do
       consumer.worker_proc.should             == worker_proc
       consumer.on_exception_proc.should       == on_exception_proc
       consumer.between_responses_procs.should == [between_responses_proc]
+      consumer.pid_file.should == "my.pid"
+      consumer.log_file.should == "my.log"
     end
   end
 end
