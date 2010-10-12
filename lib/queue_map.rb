@@ -3,6 +3,7 @@ require "bunny"
 require 'timeout'
 
 module QueueMap
+  autoload :Consumer, File.dirname(__FILE__) + "/queue_map/consumer"
   BUNNY_MUTEX = Mutex.new
   extend self
   attr_accessor :mode
