@@ -6,9 +6,10 @@ module QueueMap
   autoload :Consumer, File.dirname(__FILE__) + "/queue_map/consumer"
   BUNNY_MUTEX = Mutex.new
   extend self
-  attr_accessor :mode
+  attr_accessor :mode, :consumer_path
   attr_writer :consumer_base_path
-  attr_accessor :consumer_path
+  attr_accessor
+  attr_reader :connection_info
 
   DEFAULT_ON_TIMEOUT = lambda { |r| nil }
 
