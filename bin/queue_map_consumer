@@ -18,7 +18,6 @@ if consumer_path.nil?
 end
 
 require "rubygems"
-require "background_process"
 require File.dirname(__FILE__) + "/../lib/queue_map"
 require File.dirname(__FILE__) + "/../lib/queue_map/consumer"
 
