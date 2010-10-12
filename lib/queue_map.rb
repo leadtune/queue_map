@@ -7,13 +7,17 @@ module QueueMap
   BUNNY_MUTEX = Mutex.new
   extend self
   attr_accessor :mode
-  attr_accessor :consumer_base_path
+  attr_writer :consumer_base_path
   attr_accessor :consumer_path
 
   DEFAULT_ON_TIMEOUT = lambda { |r| nil }
 
   def unique_name
     @unique_name ||= "#{`hostname`.chomp}-#{Process.pid}-#{Time.now.usec}"
+  end
+
+  def consumer_base_path
+    @consumer_base_path ||= "lib/consumers"
   end
 
   def consumer_path
