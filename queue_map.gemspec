@@ -21,7 +21,7 @@ Gem::Specification.new do |s|
   s.add_development_dependency "background_process"
   s.add_development_dependency "ruby-debug"
 
-  s.files        = Dir.glob("{bin,lib}/**/*") + %w(LICENSE README.md ROADMAP.md CHANGELOG.md)
-  s.executables  = ['bin/queue_map_consumer']
+  s.files        = Dir.glob("{bin,lib}/**/*") + %w(MIT_LICENSE)
+  s.executables  = ['queue_map_consumer']
   s.require_path = 'lib'
 end
