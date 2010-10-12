@@ -46,15 +46,21 @@ def start
   puts "Starting consumers..."
   unless @options[:foreground]
     # daemonize
-    puts "Daemonizing"
-    pid = Kernel.fork
-    if pid
+    puts "Daemonizing..."
+    exit if Kernel.fork
+    Process.setsid
+    exit if Kernel.fork
+
+    if pid = Kernel.fork
       Process.detach(pid)
       puts "Daemonized as #{pid}"
       File.open(@consumer.pid_file, "w") { |f| f << pid.to_s }
       exit 0
     else
-      Signal.trap('HUP', 'IGNORE') # Don't die upon logout
+      f = File.open(@consumer.log_file, "a")
+      STDOUT.reopen(f)
+      STDERR.reopen(f)
+      STDIN.close
     end
   end
   @consumer.start

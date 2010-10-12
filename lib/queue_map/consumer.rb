@@ -171,7 +171,11 @@ class QueueMap::Consumer
       if graceful
         @shutting_down = true
       else
-        exit 0
+        begin
+          Kernel.exit 0
+        ensure
+          Kernel.exit! 0
+        end
       end
     end
   end
