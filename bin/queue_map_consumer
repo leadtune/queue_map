@@ -54,7 +54,11 @@ def start
       File.open(@consumer.pid_file, "w") { |f| f << pid.to_s }
       exit 0
     else
-      Signal.trap('HUP', 'IGNORE') # Don't die upon logout
+      Process.setsid
+      exit if fork
+      f = File.open(@consumer.log_file, "a")
+      STDOUT.reopen(f)
+      STDERR.reopen(f)
     end
   end
   @consumer.start

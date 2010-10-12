@@ -83,7 +83,7 @@ module QueueMap
     begin
       yield bunny
     ensure
-      bunny.close_connection unless bunny.status == :not_connected
+      (bunny.close_connection unless bunny.status == :not_connected) rescue nil
     end
   end
 
