@@ -1,5 +1,5 @@
 class QueueMap::Consumer
-  attr_accessor :count_workers, :worker_proc, :on_exception_proc
+  attr_accessor :count_workers, :worker_proc, :on_exception_proc, :job_timeout
   attr_reader :name, :master_pid
   attr_writer :pid_file, :log_file
   class Configurator
@@ -15,6 +15,7 @@ class QueueMap::Consumer
     def count_workers(value);       @base.count_workers           =  value; end
     def pid_file(value);            @base.pid_file                =  value; end
     def log_file(value);            @base.log_file                =  value; end
+    def job_timeout(value);         @base.job_timeout             =  value; end
 
     def respond_to?(*args)
       super || @base.respond_to?(*args)
@@ -84,27 +85,35 @@ class QueueMap::Consumer
   end
 
   def run_consumer
-    QueueMap.with_bunny do |bunny|
-      q = bunny.queue(name.to_s, :durable => false, :auto_delete => true)
-      while msg = q.pop
-        # STDOUT << "[#{Thread.current[:id]}]"
-        return if @shutting_down
+    begin
+      QueueMap.with_bunny do |bunny|
+        q = bunny.queue(name.to_s, :durable => false, :auto_delete => false, :ack => true)
+        logger.info "Process #{Process.pid} is listening on #{name.to_s}"
         begin
+          msg = q.pop
           (sleep 0.05; next) if msg == :queue_empty
-          msg = Marshal.load(msg)
-          result = worker_proc.call(msg[:input])
-          bunny.queue(msg[:response_queue]).publish(Marshal.dump(:result => result, :index => msg[:index]))
-          between_responses_procs.each { |p| p.call }
-        rescue Exception => e
-          if on_exception_proc
-            on_exception_proc.call(e)
-          else
-            logger.error e.message
-            logger.error e.backtrace
+          Timeout.timeout(job_timeout) do
+            msg = Marshal.load(msg)
+            result = worker_proc.call(msg[:input])
+            bunny.queue(msg[:response_queue]).publish(Marshal.dump(:result => result, :index => msg[:index]))
+            between_responses_procs.each { |p| p.call }
           end
-        end
+        rescue Qrack::ClientTimeout
+        rescue Timeout::Error
+          logger.info "Job took longer than #{timeout} seconds to complete. Aborting"
+        end while ! @shutting_down
       end
-    end
+    rescue Exception => e # Bunny gets into a strange state when exceptions are raised, so reconnect to queue server if it happens
+      if on_exception_proc
+        on_exception_proc.call(e)
+      else
+        logger.info e.class
+        logger.error e.message
+        logger.error e.backtrace
+      end
+      sleep 0.2
+    end while ! @shutting_down
+    logger.info "Done."
   end
 
   module ForkStrategy

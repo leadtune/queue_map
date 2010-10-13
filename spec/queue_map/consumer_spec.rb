@@ -15,6 +15,7 @@ describe QueueMap::Consumer do
         worker            &worker_proc
         between_responses &between_responses_proc
         on_exception      &on_exception_proc
+        job_timeout       1
         pid_file "my.pid"
         log_file "my.log"
       end
@@ -25,6 +26,7 @@ describe QueueMap::Consumer do
       consumer.worker_proc.should             == worker_proc
       consumer.on_exception_proc.should       == on_exception_proc
       consumer.between_responses_procs.should == [between_responses_proc]
+      consumer.job_timeout.should == 1
       consumer.pid_file.should == "my.pid"
       consumer.log_file.should == "my.log"
     end

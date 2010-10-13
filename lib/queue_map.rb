@@ -46,9 +46,8 @@ module QueueMap
       results = {}
       begin
         Timeout.timeout(options[:timeout] || 5) do
-          collection.length.times do
-            sleep 0.05 while (next_response = response_queue.pop) == :queue_empty
-            response = Marshal.load(next_response)
+          response_queue.subscribe(:message_max => collection.length) do |msg|
+            response = Marshal.load(msg)
             results[response[:index]] = response[:result]
           end
         end
@@ -73,13 +72,19 @@ module QueueMap
     consumers[name] ||= QueueMap::Consumer.from_file(consumer_path[name], :strategy => mode || :fork)
   end
 
-  def with_bunny(&block)
+  def new_bunny_connection
     bunny = Bunny.new((@connection_info || { }).merge(:spec => '08'))
     bunny.start
+    bunny
+  end
+
+  def with_bunny(&block)
+    bunny = new_bunny_connection
     begin
       yield bunny
     ensure
-      (bunny.close_connection unless bunny.status == :not_connected) rescue nil
+      bunny.stop rescue nil
+      bunny.close_connection rescue nil
     end
   end
 
