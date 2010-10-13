@@ -44,8 +44,6 @@ class QueueMap::Consumer
     case options[:strategy]
     when :fork
       extend(ForkStrategy)
-    when :thread
-      extend(ThreadStrategy)
     when :test
       nil
     else
@@ -105,29 +103,6 @@ class QueueMap::Consumer
             logger.error e.backtrace
           end
         end
-      end
-    end
-  end
-
-  module ThreadStrategy
-    def start
-      @threads = []
-      count_workers.times do |c|
-        @threads << (Thread.new do
-                       begin
-                         run_consumer
-                       rescue Exception => e
-                         logger.error %(#{e}\n#{e.backtrace.join("\n")})
-                       end
-                     end)
-      end
-    end
-
-    def stop(graceful = true)
-      if graceful
-        @shutting_down = true
-      else
-        @threads.each { |t| t.kill }
       end
     end
   end

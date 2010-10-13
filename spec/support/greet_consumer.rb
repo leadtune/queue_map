@@ -1,3 +1,4 @@
+require File.dirname(__FILE__) + "/objects.rb"
 count_workers 3
 
 before_fork do

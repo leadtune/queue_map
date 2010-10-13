@@ -4,7 +4,6 @@ require 'timeout'
 
 module QueueMap
   autoload :Consumer, File.dirname(__FILE__) + "/queue_map/consumer"
-  BUNNY_MUTEX = Mutex.new
   extend self
   attr_accessor :mode, :consumer_path
   attr_writer :consumer_base_path
@@ -71,15 +70,12 @@ module QueueMap
   end
 
   def consumer(name)
-    consumers[name] ||= QueueMap::Consumer.from_file(consumer_path[name], :strategy => mode || :thread)
+    consumers[name] ||= QueueMap::Consumer.from_file(consumer_path[name], :strategy => mode || :fork)
   end
 
   def with_bunny(&block)
-    bunny = nil
-    BUNNY_MUTEX.synchronize do
-      bunny = Bunny.new((@connection_info || { }).merge(:spec => '08'))
-      bunny.start
-    end
+    bunny = Bunny.new((@connection_info || { }).merge(:spec => '08'))
+    bunny.start
     begin
       yield bunny
     ensure

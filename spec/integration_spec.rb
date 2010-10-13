@@ -6,29 +6,12 @@ def timing(&block)
   (Time.now - time)
 end
 
-class Surprise
-  def to_s
-    raise "Surprise!"
-  end
-end
-
-class SlowResponse
-  attr_reader :name
-  def initialize(name, sec)
-    @name, @sec = name, sec
-  end
-
-  def to_s
-    sleep @sec
-    @name
-  end
-end
-
 describe "Integration" do
   context "Running consumers in separate processes" do
     def start_consumers
       @process = BackgroundProcess.run("#{BIN_PATH}/queue_map_consumer -f start #{SPEC_PATH}/support/greet_consumer.rb")
       @process.detect { |line| /Starting consumers/.match(line) }
+      sleep 0.1 # give processes time to connect to queue server and be fully setup..
     end
 
     def stop_consumers(graceful = true)
@@ -42,6 +25,23 @@ describe "Integration" do
     it "performs the work in the spawned processes" do
       start_consumers
       ['Bob', 'Jim', 'Charlie'].queue_map(:greet).should == ['Hello, Bob', 'Hello, Jim', 'Hello, Charlie']
+    end
+
+    it "runs the :on_timeout proc if result not received within :timeout seconds" do
+      input = [SlowResponse.new("Bob", 1.2), SlowResponse.new("Jim", 0.2)]
+      input.queue_map(:greet, :timeout => 1, :on_timeout => lambda { |r| "No time for you, #{r.name}" }).should == ["No time for you, Bob", "Hello, Jim"]
+    end
+
+    it "outputs exceptions, as raised, and continues consuming messages" do
+      log_file = QueueMap.consumer(:greet).log_file
+      File.truncate(log_file)
+      gravel = (1..3).map { |i| Surprise.new("Surprise #{i}!") }
+      gravel.queue_map(:greet, :timeout => 1.5)
+      log_contents = File.read(log_file)
+      (1..3).each do |i|
+        log_contents.should include("Surprise #{i}!")
+      end
+      ['Bob', 'Jim'].queue_map(:greet, :timeout => 5).should == ['Hello, Bob', 'Hello, Jim']
     end
   end
 
@@ -57,38 +57,6 @@ describe "Integration" do
     it "runs the consumer directly, without using the queue" do
       results = ['Bob', 'Jim'].queue_map(:greet)
       results.should == ['Hello, Bob', 'Hello, Jim']
-    end
-  end
-
-  context "Running the consumers in threads" do
-    before(:each) do
-      QueueMap.mode = :thread
-      @consumer = QueueMap.consumer(:greet)
-      @consumer.start
-    end
-
-    after(:each) do
-      @consumer.stop
-      QueueMap.mode = nil
-    end
-
-    it "runs the consumer using the queue" do
-      results = ['Bob', 'Jim'].queue_map(:greet)
-      results.should == ['Hello, Bob', 'Hello, Jim']
-    end
-
-    it "runs the :on_timeout proc if result not received within :timeout seconds" do
-      input = [SlowResponse.new("Bob", 1.2), SlowResponse.new("Jim", 0.2)]
-      input.queue_map(:greet, :timeout => 1, :on_timeout => lambda { |r| "No time for you, #{r.name}" }).should == ["No time for you, Bob", "Hello, Jim"]
-    end
-
-    it "continues consuming messages if exceptions are raised" do
-      exceptions = []
-      @consumer.on_exception_proc = lambda { |e| exceptions << e }
-      gravel = [Surprise.new] * 3
-      gravel.queue_map(:greet, :timeout => 1.5)
-      exceptions.map { |e| e.message }.should == %w[Surprise! Surprise! Surprise!]
-      ['Bob', 'Jim'].queue_map(:greet, :timeout => 5).should == ['Hello, Bob', 'Hello, Jim']
     end
   end
 end
