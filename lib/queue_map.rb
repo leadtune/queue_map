@@ -3,6 +3,8 @@ require "bunny"
 require 'timeout'
 
 module QueueMap
+  BUNNY_MUTEX = Mutex.new
+
   autoload :Consumer, File.dirname(__FILE__) + "/queue_map/consumer"
   extend self
   attr_accessor :mode, :consumer_path
@@ -73,9 +75,11 @@ module QueueMap
   end
 
   def new_bunny_connection
-    bunny = Bunny.new((@connection_info || { }).merge(:spec => '08'))
-    bunny.start
-    bunny
+    BUNNY_MUTEX.synchronize do
+      bunny = Bunny.new((@connection_info || { }).merge(:spec => '08'))
+      bunny.start
+      bunny
+    end
   end
 
   def with_bunny(&block)
@@ -83,8 +87,10 @@ module QueueMap
     begin
       yield bunny
     ensure
-      bunny.stop rescue nil
-      bunny.close_connection rescue nil
+      BUNNY_MUTEX.synchronize do
+        bunny.stop rescue nil
+        bunny.close_connection rescue nil
+      end
     end
   end
 

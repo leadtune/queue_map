@@ -22,3 +22,27 @@ QueueMap.consumer_base_path = SPEC_PATH + "support"
 def File.truncate(filename)
   File.open(filename, "wb") {|f|}
 end
+
+class Future
+  def initialize(&block)
+    @thread = Thread.new do
+      begin
+        @result = yield
+      rescue Exception => e
+        @error = e
+      end
+    end
+  end
+
+  def deref
+    if @thread
+      @thread.join
+      @thread = nil
+    end
+    if @error
+      e, @error = @error, nil
+      raise e
+    end
+    @result
+  end
+end

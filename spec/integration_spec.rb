@@ -56,6 +56,15 @@ describe "Integration" do
       thread.join
     end
 
+    it "is thread safe" do
+      results = []
+      100.times do
+        results << Future.new { ['Bob', 'Jim', 'Charlie'].queue_map(:greet) }
+      end
+      results.map { |r| r.deref }.uniq.should == [ ['Hello, Bob', 'Hello, Jim', 'Hello, Charlie'] ]
+    end
+
+
   end
 
   context "Running the consumer in test mode" do
