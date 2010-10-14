@@ -1,7 +1,7 @@
 class QueueMap::Consumer
   attr_accessor :count_workers, :worker_proc, :on_exception_proc, :job_timeout
   attr_reader :name, :master_pid
-  attr_writer :pid_file, :log_file
+  attr_writer :pid_file, :log_file, :idle_proc
   class Configurator
     def initialize(base)
       @base = base
@@ -16,6 +16,7 @@ class QueueMap::Consumer
     def count_workers(value);       @base.count_workers           =  value; end
     def pid_file(value);            @base.pid_file                =  value; end
     def log_file(value);            @base.log_file                =  value; end
+    def idle(&block);               @base.idle_proc               =  block; end
     def job_timeout(value);         @base.job_timeout             =  value; end
 
     def respond_to?(*args)
@@ -89,6 +90,10 @@ class QueueMap::Consumer
     raise RuntimeError, "Called stop on Consumer without strategy"
   end
 
+  def idle_proc
+    @idle_proc ||= lambda { sleep 0.05 }
+  end
+
   def run_consumer
     begin
       QueueMap.with_bunny do |bunny|
@@ -96,7 +101,7 @@ class QueueMap::Consumer
         logger.info "Process #{Process.pid} is listening on #{name.to_s}"
         begin
           msg = q.pop
-          (sleep 0.05; next) if msg == :queue_empty
+          (idle_proc.call; next) if msg == :queue_empty
           before_job_procs.each { |p| p.call }
           begin
             Timeout.timeout(job_timeout) do
