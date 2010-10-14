@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    queue_map (0.4)
+    queue_map (0.5)
       bunny (= 0.5.3)
 
 GEM
