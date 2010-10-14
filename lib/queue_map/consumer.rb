@@ -9,7 +9,8 @@ class QueueMap::Consumer
 
     def before_fork(&block);        @base.before_fork_procs       << block; end
     def after_fork(&block);         @base.after_fork_procs        << block; end
-    def between_responses(&block);  @base.between_responses_procs << block; end
+    def after_response(&block);     @base.after_response_procs    << block; end
+    def before_job(&block);         @base.before_job_procs        << block; end
     def worker(&block);             @base.worker_proc             =  block; end
     def on_exception(&block);       @base.on_exception_proc       =  block; end
     def count_workers(value);       @base.count_workers           =  value; end
@@ -60,8 +61,12 @@ class QueueMap::Consumer
     @before_fork_procs ||= []
   end
 
-  def between_responses_procs
-    @between_responses_procs ||= []
+  def after_response_procs
+    @after_response_procs ||= []
+  end
+
+  def before_job_procs
+    @before_job_procs ||= []
   end
   
   def pid_file
@@ -92,11 +97,15 @@ class QueueMap::Consumer
         begin
           msg = q.pop
           (sleep 0.05; next) if msg == :queue_empty
-          Timeout.timeout(job_timeout) do
-            msg = Marshal.load(msg)
-            result = worker_proc.call(msg[:input])
-            bunny.queue(msg[:response_queue]).publish(Marshal.dump(:result => result, :index => msg[:index]))
-            between_responses_procs.each { |p| p.call }
+          before_job_procs.each { |p| p.call }
+          begin
+            Timeout.timeout(job_timeout) do
+              msg = Marshal.load(msg)
+              result = worker_proc.call(msg[:input])
+              bunny.queue(msg[:response_queue]).publish(Marshal.dump(:result => result, :index => msg[:index]))
+            end
+          ensure
+            after_response_procs.each { |p| p.call }
           end
         rescue Qrack::ClientTimeout
         rescue Timeout::Error
