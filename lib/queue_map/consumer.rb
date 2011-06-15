@@ -167,6 +167,7 @@ class QueueMap::Consumer
 
       logger.info "#{Process.pid}: stopping (graceful: #{graceful})"
       if graceful
+        Thread.new { sleep job_timeout; stop(false) } # after job_timeout seconds, force shut down
         @shutting_down = true
       else
         begin
