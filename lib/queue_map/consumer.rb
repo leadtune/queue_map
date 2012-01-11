@@ -114,7 +114,7 @@ class QueueMap::Consumer
           end
         rescue Qrack::ClientTimeout
         rescue Timeout::Error
-          logger.info "Job took longer than #{timeout} seconds to complete. Aborting"
+          logger.info "Job took longer than #{job_timeout} seconds to complete. Aborting"
         end while ! @shutting_down
       end
     rescue Exception => e # Bunny gets into a strange state when exceptions are raised, so reconnect to queue server if it happens
